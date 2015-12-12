@@ -19,7 +19,7 @@ import com.calderagames.mpfw.inputs.MouseInputEvent;
 import com.calderagames.mpfw.math.Matrix4f;
 import com.calderagames.mpfw.utils.Timer;
 
-public class Test implements InputListener{
+public class Test implements InputListener {
 	
 	//The window
 	private Window window;
@@ -35,9 +35,12 @@ public class Test implements InputListener{
 	private double dt;
 	
 	private SpriteBatch sb;
+	private Matrix4f proj;
 	
 	private int FPS, frameCounter;
 	private Timer timerFPS = new Timer(1000);
+	
+	boolean apply;
 	
 	private void createWindow()	{
 		//Create the a window and store it in window
@@ -53,7 +56,7 @@ public class Test implements InputListener{
 		
 		sb = new SpriteBatch(1000);
 		
-		Matrix4f proj = new Matrix4f();
+		proj = new Matrix4f();
 		proj.setOrtho(0, 1280, 720, 0, 1, -1);
 		
 		sb.setProjection(proj);
@@ -62,6 +65,16 @@ public class Test implements InputListener{
 	
 	private void loop() {
 		while(!window.shouldClose()) {
+			
+			if(apply) {
+				sb.dispose();
+				window.applyWindowHintsChanges();
+				//sb = new SpriteBatch(1000);
+				sb.setProjection(proj);
+				sb.setColor(1f, 1f, 1f, 1f);
+				apply = false;
+			}
+			
 			GLFW.glfwSetTime(0);
 			GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
 			
@@ -114,24 +127,23 @@ public class Test implements InputListener{
 			KeyboardInputEvent kEvent = (KeyboardInputEvent) event;
 			
 			if(kEvent.action == Input.PRESS) {
-    			if(kEvent.key == Input.KEY_F11) {
-    				window.setFullscreen(true);
-    				window.applyWindowHintsChanges();
-    			}
     			if(kEvent.key == Input.KEY_F1) {
     				randMode = !randMode;
     			}
-    			else if(kEvent.key == Input.KEY_F12) {
-    				window.setFullscreen(false);
-    				window.applyWindowHintsChanges();
-    			}
-    			else if(kEvent.key == Input.KEY_F10) {
-    				window.setResizable(true);
-    				window.applyWindowHintsChanges();
+    			else if(kEvent.key == Input.KEY_F2) {
+    				apply = true;
     			}
     			else if(kEvent.key == Input.KEY_F9) {
     				window.setDecorated(false);
-    				window.applyWindowHintsChanges();
+    			}
+    			else if(kEvent.key == Input.KEY_F10) {
+    				window.setResizable(true);
+    			}
+    			if(kEvent.key == Input.KEY_F11) {
+    				window.setFullscreen(true);
+    			}
+    			else if(kEvent.key == Input.KEY_F12) {
+    				window.setFullscreen(false);
     			}
 			}
 		}

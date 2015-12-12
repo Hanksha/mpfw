@@ -11,24 +11,22 @@ import static org.lwjgl.opengl.GL11.glClearColor;
 import static org.lwjgl.opengl.GL11.glEnable;
 import static org.lwjgl.opengl.GL11.glViewport;
 
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
-import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWFramebufferSizeCallback;
+import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.glfw.GLFWVidMode.Buffer;
 import org.lwjgl.glfw.GLFWWindowCloseCallback;
 import org.lwjgl.glfw.GLFWWindowFocusCallback;
 import org.lwjgl.glfw.GLFWWindowIconifyCallback;
 import org.lwjgl.glfw.GLFWWindowPosCallback;
 import org.lwjgl.glfw.GLFWWindowRefreshCallback;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
-import org.lwjgl.glfw.GLFWvidmode;
-import org.lwjgl.opengl.GLContext;
+import org.lwjgl.opengl.GL;
 
 import com.calderagames.mpfw.WindowEvent.WindowEventType;
 import com.calderagames.mpfw.inputs.Input;
@@ -68,7 +66,7 @@ public class Window {
 
 	/**Boolean flag for vsync enable or disable*/
 	private boolean vsync;
-
+	
 	/**
 	 * Constructs a window with the provided dimension, title and  default window hints. 
 	 * Also initialize mpfw and inputs.
@@ -103,10 +101,6 @@ public class Window {
 		this.title = title;
 		//Store hints
 		this.hints = hints;
-		//Set current width
-		currWidth = width;
-		//Set current height
-		currHeight = height;
 
 		//Initialize the callback
 		closeCallback = new GLFWWindowCloseCallback() {
@@ -188,16 +182,21 @@ public class Window {
 		glfwWindowHint(GLFW_CLIENT_API, hints.clientAPI.api);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, hints.openGLProfile.profile);
 
-		//If a window previously created, keep the handle
-		long oldWindowHandle = windowHandle;
-
 		//Get the monitor
 		long monitor = glfwGetPrimaryMonitor();
 		//Get the video mode
-		ByteBuffer vidMode = glfwGetVideoMode(monitor);
-		int monitorWidth = GLFWvidmode.width(vidMode);
-		int monitorHeight = GLFWvidmode.height(vidMode);
-
+		GLFWVidMode vidMode = glfwGetVideoMode(monitor);
+		int monitorWidth = vidMode.width();
+		int monitorHeight = vidMode.height();
+		
+		//Set current width
+		currWidth = width;
+		//Set current height
+		currHeight = height;
+		
+		//If a window previously created, keep the handle
+		long oldWindowHandle = windowHandle;
+		
 		//Create the window and store the window handle
 		windowHandle = glfwCreateWindow(hints.fullscreen ? monitorWidth : width, hints.fullscreen ? monitorHeight : height, title,
 										hints.fullscreen ? monitor : 0, oldWindowHandle);
@@ -205,18 +204,18 @@ public class Window {
 		//Update the resolution helper
 		ResolutionHelper.update(hints.fullscreen ? monitorWidth : width, hints.fullscreen ? monitorHeight : height);
 
-		//destroy the previously created window if any
-		if(oldWindowHandle != 0)
-			glfwDestroyWindow(oldWindowHandle);
-
 		//Check if the window was successfully created
 		if(windowHandle == 0)
 			throw new RuntimeException("Failed to create window");
 
 		//Make the window the current context
 		glfwMakeContextCurrent(windowHandle);
-		GLContext.createFromCurrent();
-
+		GL.createCapabilities();
+		
+		//Destroy the previously created window if any
+		if(oldWindowHandle != 0)
+			glfwDestroyWindow(oldWindowHandle);
+		
 		//Center the window
 		if(!hints.fullscreen)
 			glfwSetWindowPos(windowHandle, monitorWidth / 2 - width / 2, monitorHeight / 2 - height / 2);
@@ -240,7 +239,7 @@ public class Window {
 		glfwSetFramebufferSizeCallback(windowHandle, framebufferSizeCallback);
 
 		//Set up opengGL
-		glViewport(0, 0, currWidth, currHeight);
+		glViewport(0, 0, hints.fullscreen ? monitorWidth : width, hints.fullscreen ? monitorHeight : height);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glClearColor(0f, 0f, 0f, 1f);
@@ -365,18 +364,17 @@ public class Window {
 	public static ArrayList<Dimension> getAllResolution() {
 		ArrayList<Dimension> allRes = new ArrayList<Dimension>();
 
-		IntBuffer count = BufferUtils.createIntBuffer(1);
-
 		long monitor = GLFW.glfwGetPrimaryMonitor();
 
-		ByteBuffer vidModes = GLFW.glfwGetVideoModes(monitor, count);
-
-		for(int i = 0; i < count.get(0); i++) {
-			vidModes.position(i * GLFWvidmode.SIZEOF);
-
-			int width = GLFWvidmode.width(vidModes);
-			int height = GLFWvidmode.height(vidModes);
-
+		Buffer vidModes = GLFW.glfwGetVideoModes(monitor);
+		
+		while(vidModes.hasRemaining()) {
+			
+			int width = vidModes.width();
+			int height = vidModes.height();
+			
+			vidModes.get();
+			
 			Dimension dim = new Dimension(width, height);
 
 			if(!allRes.contains(dim))

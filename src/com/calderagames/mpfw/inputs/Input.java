@@ -12,7 +12,6 @@ import org.lwjgl.glfw.GLFWKeyCallback;
 import org.lwjgl.glfw.GLFWMouseButtonCallback;
 import org.lwjgl.glfw.GLFWScrollCallback;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.system.linux.Joystick;
 
 import com.calderagames.mpfw.ResolutionHelper;
 import com.calderagames.mpfw.inputs.InputEvent.InputEventSources;
