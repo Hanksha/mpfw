@@ -13,7 +13,6 @@ import static org.lwjgl.opengl.GL11.glViewport;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWErrorCallback;
@@ -381,9 +380,7 @@ public class Window {
 				allRes.add(dim);
 		}
 
-		Collections.sort(allRes, new Comparator<Dimension>() {
-			@Override
-			public int compare(Dimension d1, Dimension d2) {
+		Collections.sort(allRes, (Dimension d1, Dimension d2) -> {
 				if(d1.width * d1.height > d2.width * d2.height) {
 					return 1;
 				}
@@ -392,7 +389,6 @@ public class Window {
 					return -1;
 
 				return 0;
-			}
 		});
 
 		return allRes;

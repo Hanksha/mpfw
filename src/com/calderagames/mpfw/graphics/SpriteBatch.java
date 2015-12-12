@@ -338,8 +338,7 @@ public class SpriteBatch implements Disposable {
 	public void setColor(Color color) {
 		this.color.setColor(color);
 	}
-	
-	@Override
+
 	public void dispose() {
 		GL30.glDeleteVertexArrays(vaoId);
 		GL15.glDeleteBuffers(vboId);
