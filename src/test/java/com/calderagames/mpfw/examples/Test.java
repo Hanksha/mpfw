@@ -48,7 +48,7 @@ public class Test implements InputListener {
 		window.setVSync(false);
 		Input.setInputListener(this);
 		
-		tex = new Texture(Test.class.getResource("mpfw-logo.png").getPath().replace("%20", " "), MPFW.MPFW_NEAREST, MPFW.MPFW_TEXTURE0);
+		tex = new Texture("./resources/test/examples/mpfw-logo.png", MPFW.MPFW_NEAREST, MPFW.MPFW_TEXTURE0);
 		tex.load();
 		
 		sprTroll = new Sprite(64, 64, new TextureRegion(tex, 1, 601, 64, 64));
