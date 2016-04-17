@@ -66,6 +66,9 @@ public class Window {
 	/**Boolean flag for vsync enable or disable*/
 	private boolean vsync;
 	
+	/**Time elapsed since last update in seconds*/
+	private float delta;
+	
 	/**
 	 * Constructs a window with the provided dimension, title and  default window hints. 
 	 * Also initialize mpfw and inputs.
@@ -246,6 +249,10 @@ public class Window {
 
 	/**Update the window, poll the events and swap buffers*/
 	public void update() {
+		//Calculate delta time
+		delta = (float) glfwGetTime();
+		glfwSetTime(0);
+		
 		//Swap the buffers
 		glfwSwapBuffers(windowHandle);
 		//Update inputs
@@ -400,6 +407,18 @@ public class Window {
 	 */
 	public boolean isVSyncEnabled() {
 		return vsync;
+	}
+	
+	public boolean isFullscreen() {
+		return hints.fullscreen;
+	}
+	
+	/**
+	 * Returns the time elapse since the last update in seconds.
+	 * @return float delta
+	 */
+	public float getDelta() {
+		return delta;
 	}
 
 	/**Destroy the window and free all the resources allocated*/

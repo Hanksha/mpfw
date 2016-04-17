@@ -38,7 +38,8 @@ public class SpriteBatch implements Disposable {
 	private IntBuffer bufferElem;
 
 	/**x/y coordinates, reusable*/
-	public float x1, y1, x2, y2, x3, y3, x4, y4;
+	private float x1, y1, x2, y2, x3, y3, x4, y4;
+	private float u1, v1, u2, v2, u3, v3, u4, v4;
 	
 	/**The size of the batch, maximum number of sprite drawn per batch*/
 	private int size;
@@ -46,13 +47,7 @@ public class SpriteBatch implements Disposable {
 	private int counter;
 	/**Current texture id*/
 	private int currTexId;
-	/**The previous texture id*/
-	private int prevTexId;
-	
-	/**The current camera*/
-	private Camera2D cam;
-	/**The default camera*/
-	private Camera2D defaultCam;
+
 	/**The projection matrix*/
 	private Matrix4f proj;
 	
@@ -61,15 +56,10 @@ public class SpriteBatch implements Disposable {
 	/**The current shader program in use for the batch*/
 	private ShaderProgram currShader;
 	
-	/**Constructs a sprite batch with a size of 1000 and a default shader program*/
-	public SpriteBatch() {
-		this(1000);
-	}
-
-	/**
-	 * Constructs a sprite batch with the given size and a default shader program
-	 * @param size the size maximum size of one batch
-	 */
+	private RenderTarget currRenderTarget;
+	
+	private boolean drawing;
+	
 	public SpriteBatch(int size) {
 		this(size, null);
 	}
@@ -82,17 +72,15 @@ public class SpriteBatch implements Disposable {
 	public SpriteBatch(int size, ShaderProgram defaultShader) {
 		this.size = size;
 		
-		//If no shader is passed, instantiate a default shader program
 		if(defaultShader == null)
-			this.defaultShader = new ShaderProgram();
-		else
-			this.defaultShader = defaultShader;
+			defaultShader = new ShaderProgram();
 		
-		//Default Camera2D
-		defaultCam = new Camera2D();
+		this.defaultShader = defaultShader;
+		
+		currShader = this.defaultShader;
 		
 		//Default white color
-		color = new Color(1f, 1f, 1f);
+		color = new Color(1f, 1f, 1f, 1f);
 		
 		//Init vertex array
 		vertices = new float[(8 + 8 + 16) * size];
@@ -134,27 +122,31 @@ public class SpriteBatch implements Disposable {
 		GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 	
-	public void begin(Texture texture) {
-		begin(texture, defaultShader, defaultCam);
-	}
-	
-	public void begin(Texture texture, ShaderProgram shader, Camera2D camera) {
-		//Set the camera
-		cam = camera;
+	public void begin() {
+		if(drawing)
+			throw new IllegalStateException("SpriteBatch.end must be called before begin.");
 		
-		//Get the texture id
-		currTexId = texture.getId();
-
-		currShader = shader;
+		// Use fbo
+		if(currRenderTarget != null)
+			currRenderTarget.begin();
+		
 		//Use the shader
 		currShader.begin();
 		//Set the projection matrix
-		currShader.setUniformMat4f(currShader.getShaderAttrib().PROJECTION_ATTR, proj);
+		currShader.setUniformMat4f("projection", proj);
+		
+		drawing = true;
 	}
 	
 	public void end() {
+		if(!drawing)
+			throw new IllegalStateException("SpriteBatch.begin must be called before end.");
+	
 		render();
+		if(currRenderTarget != null)
+			currRenderTarget.end();
 		currShader.end();
+		drawing = false;
 	}
 
 	/**Render the current batch*/
@@ -162,12 +154,8 @@ public class SpriteBatch implements Disposable {
 		if(counter == 0)
 			return;
 		
-		//Bind the texture if necessary;
-		if(prevTexId != currTexId) {
-    		GL13.glActiveTexture(GL13.GL_TEXTURE0);
-    		GL11.glBindTexture(GL11.GL_TEXTURE_2D, currTexId);
-		}
-		prevTexId = currTexId;
+		GL13.glActiveTexture(GL13.GL_TEXTURE0);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, currTexId);
 		
 		bufferVert.put(vertices, 0, vertIndex);
 		bufferVert.flip();
@@ -199,16 +187,131 @@ public class SpriteBatch implements Disposable {
 		elemIndex = 0;
 	}
 	
-	public void draw(TextureRegion texRegion, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4) {
-		if(counter == size)
+	public void draw(Sprite sprite) {
+		if(!drawing)
+			throw new IllegalStateException("SpriteBatch.begin must be called before draw.");
+		
+		if(currTexId == 0)
+			currTexId = sprite.getTexRegion().getTexture().getId();
+		
+		if(counter == size || currTexId != sprite.getTexRegion().getTexture().getId())
 			render();
+		
+		currTexId = sprite.getTexRegion().getTexture().getId();
+		
+		float[] vert = sprite.getVertices();
+		float[] region = sprite.getTexRegion().getRegion();
+		setColor(sprite.getColor());
+		
+		x1 = vert[0];
+		y1 = vert[1];
+		x2 = vert[2];
+		y2 = vert[3];
+		x3 = vert[4];
+		y3 = vert[5];
+		x4 = vert[6];
+		y4 = vert[7];
+		
+		u1 = region[0];
+		v1 = region[1];
+		u2 = region[2];
+		v2 = region[3];
+		u3 = region[4];
+		v3 = region[5];
+		u4 = region[6];
+		v4 = region[7];
+		
+		if(sprite.isFlipX()) {
+			u1 = u1 + u2;
+			u2 = u1 - u2;
+			u1 = u1 - u2;
+			
+			u3 = u3 + u4;
+			u4 = u3 - u4;
+			u3 = u3 - u4;
+		}
+		
+		if(sprite.isFlipY()) {
+			v1 = v1 + v4;
+			v4 = v1 - v4;
+			v1 = v1 - v4;
+			
+			v2 = v2 + v3;
+			v3 = v2 - v3;
+			v2 = v2 - v3;
+		}
+		
+		vertices[vertIndex++] = x1;
+		vertices[vertIndex++] = y1;
+		
+		vertices[vertIndex++] = u1;
+		vertices[vertIndex++] = v1;
+		
+		vertices[vertIndex++] = color.r;
+		vertices[vertIndex++] = color.g;
+		vertices[vertIndex++] = color.b;
+		vertices[vertIndex++] = color.a;
+		
+		vertices[vertIndex++] = x2;
+		vertices[vertIndex++] = y2;
+		
+		vertices[vertIndex++] = u2;
+		vertices[vertIndex++] = v2;
+		
+		vertices[vertIndex++] = color.r;
+		vertices[vertIndex++] = color.g;
+		vertices[vertIndex++] = color.b;
+		vertices[vertIndex++] = color.a;
+		
+		vertices[vertIndex++] = x3;
+		vertices[vertIndex++] = y3;
+		
+		vertices[vertIndex++] = u3;
+		vertices[vertIndex++] = v3;
+		
+		vertices[vertIndex++] = color.r;
+		vertices[vertIndex++] = color.g;
+		vertices[vertIndex++] = color.b;
+		vertices[vertIndex++] = color.a;
+		
+		vertices[vertIndex++] = x4;
+		vertices[vertIndex++] = y4;
+		
+		vertices[vertIndex++] = u4;
+		vertices[vertIndex++] = v4;
+		
+		vertices[vertIndex++] = color.r;
+		vertices[vertIndex++] = color.g;
+		vertices[vertIndex++] = color.b;
+		vertices[vertIndex++] = color.a;
+		
+		final int index = counter * 4;
+		elements[elemIndex++] = index + 0; //Top left
+		elements[elemIndex++] = index + 1; //Top right
+		elements[elemIndex++] = index + 3; //Bottom left
+		elements[elemIndex++] = index + 1; //Top right
+		elements[elemIndex++] = index + 2; //Bottom right
+		elements[elemIndex++] = index + 3; //Bottom left;
+		
+		counter++;
+	}
+	
+	public void draw(TextureRegion texRegion, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4) {
+		if(!drawing)
+			throw new IllegalStateException("SpriteBatch.begin must be called before draw.");
+		
+		if(currTexId == 0)
+			currTexId = texRegion.getTexture().getId();
+		
+		if(counter == size || currTexId != texRegion.getTexture().getId())
+			render();
+		
+		currTexId = texRegion.getTexture().getId();
 
 		//check if the vertices are out of the screen
-		/*if((cam.getX() + x1 < 0 || cam.getX() + x1 > VAR.WIDTH) && (cam.getY() + y1 < 0 || cam.getY() + y1 > VAR.HEIGHT) && (cam.getX() + x2 < 0 || cam.getX() + x2 > VAR.WIDTH) && (cam.getY() + y2 < 0 || cam.getY() + y2 > VAR.HEIGHT) && (cam.getX() + x3 < 0 || cam.getX() + x3 > VAR.WIDTH) && (cam.getY() + y3 < 0 || cam.getY() + y3 > VAR.HEIGHT) && (cam.getX() + x4 < 0 || cam.getX() + x4 > VAR.WIDTH) && (cam.getY() + y4 < 0 || cam.getY() + y4 > VAR.HEIGHT))
-			return;*/
-		
-		vertices[vertIndex++] = cam.getX() + x1;
-		vertices[vertIndex++] = cam.getY() + y1;
+	
+		vertices[vertIndex++] = x1;
+		vertices[vertIndex++] = y1;
 		
 		vertices[vertIndex++] = texRegion.getRegion()[0];
 		vertices[vertIndex++] = texRegion.getRegion()[1];
@@ -218,8 +321,8 @@ public class SpriteBatch implements Disposable {
 		vertices[vertIndex++] = color.b;
 		vertices[vertIndex++] = color.a;
 		
-		vertices[vertIndex++] = cam.getX() + x2;
-		vertices[vertIndex++] = cam.getY() + y2;
+		vertices[vertIndex++] = x2;
+		vertices[vertIndex++] = y2;
 		
 		vertices[vertIndex++] = texRegion.getRegion()[2];
 		vertices[vertIndex++] = texRegion.getRegion()[3];
@@ -229,8 +332,8 @@ public class SpriteBatch implements Disposable {
 		vertices[vertIndex++] = color.b;
 		vertices[vertIndex++] = color.a;
 		
-		vertices[vertIndex++] = cam.getX() + x3;
-		vertices[vertIndex++] = cam.getY() + y3;
+		vertices[vertIndex++] = x3;
+		vertices[vertIndex++] = y3;
 		
 		vertices[vertIndex++] = texRegion.getRegion()[4];
 		vertices[vertIndex++] = texRegion.getRegion()[5];
@@ -240,8 +343,8 @@ public class SpriteBatch implements Disposable {
 		vertices[vertIndex++] = color.b;
 		vertices[vertIndex++] = color.a;
 		
-		vertices[vertIndex++] = cam.getX() + x4;
-		vertices[vertIndex++] = cam.getY() + y4;
+		vertices[vertIndex++] = x4;
+		vertices[vertIndex++] = y4;
 		
 		vertices[vertIndex++] = texRegion.getRegion()[6];
 		vertices[vertIndex++] = texRegion.getRegion()[7];
@@ -251,7 +354,7 @@ public class SpriteBatch implements Disposable {
 		vertices[vertIndex++] = color.b;
 		vertices[vertIndex++] = color.a;
 		
-		int index = counter * 4;
+		final int index = counter * 4;
 		elements[elemIndex++] = index + 0; //Top left
 		elements[elemIndex++] = index + 1; //Top right
 		elements[elemIndex++] = index + 3; //Bottom left
@@ -309,15 +412,43 @@ public class SpriteBatch implements Disposable {
 	 * @param projection the projection matrix
 	 */
 	public void setProjection(Matrix4f projection) {
+		if(projection == null)
+			throw new IllegalArgumentException("The projection cannot be null.");
+		
 		proj = projection;
 	}
 	
-	/**
-	 * Sets the camera of the batch.
-	 * @param camera the camera
-	 */
-	public void setCamera(Camera2D camera) {
-		cam = camera;
+	public void setShader(ShaderProgram newShader) {
+		if(newShader == null)
+			newShader = defaultShader;
+		
+		if(currShader.equals(newShader))
+			return;
+		
+		if(drawing) {
+			render();
+			newShader.begin();
+			//Set the projection matrix
+			currShader.setUniformMat4f("projection", proj);
+		}
+		currShader = newShader;
+	}
+	
+	public void setRenderTarget(RenderTarget newRenderTarget) {
+		if( (currRenderTarget != null && currRenderTarget.equals(newRenderTarget)) ||
+			(currRenderTarget == null && newRenderTarget == null))
+			return;
+		
+		if(drawing) {
+			render();
+			
+			if(newRenderTarget != null)
+				newRenderTarget.begin();
+			else if(currRenderTarget != null)
+				currRenderTarget.end();
+		}
+		
+		currRenderTarget = newRenderTarget;
 	}
 	
 	/**

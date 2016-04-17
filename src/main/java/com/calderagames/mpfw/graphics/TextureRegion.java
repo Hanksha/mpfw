@@ -11,11 +11,6 @@ public class TextureRegion {
 
 	/**Coordinates of the region*/
 	private float[] texCoords;
-
-	/**Constructs an uninitialized texture region with no reference texture*/
-	public TextureRegion() {
-		texCoords = new float[8];
-	}
 	
 	/**
 	 * Constructs a region of the specified texture
@@ -38,11 +33,6 @@ public class TextureRegion {
 		                          x + width, y + height, //bottom right
 		                          x, y + height //bottom left 
 		                      	};
-	}
-
-	/**Make a swallow copy of the coordinates array*/
-	public TextureRegion(float[] coords) {
-		texCoords = coords;
 	}
 
 	/**Returns a float array of the region coordinates*/

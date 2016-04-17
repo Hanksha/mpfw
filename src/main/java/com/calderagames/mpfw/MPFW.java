@@ -3,7 +3,9 @@ package com.calderagames.mpfw;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
-public abstract class MPFW {
+public final class MPFW {
+	
+	private MPFW() {}
 	
 	/**Texture unit. Accepted by the {@code texture} parameter of ActiveTexture and MultiTexCoord.*/
 	public static final int
